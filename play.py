@@ -1,38 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from .. import schemas
-from database import get_db
-from crud import play as crud_play
+from app import models, schemas
 
-router = APIRouter()
+def get_play(db: Session, play_id: int):
+    return db.query(models.Play).filter(models.Play.id == play_id).first()
 
-@router.post('/', response_model=schemas.Play)
-def create_play_endpoint(
-    play: schemas.PlayCreate,
-    db: Session = Depends(get_db)
-):
-    return crud_play.create_play(db=db, play=play)
+def get_plays(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.Play).offset(skip).limit(limit).all()
 
-@router.get('/{play_id}', response_model=schemas.Play)
-def read_play(play_id: int, db: Session = Depends(get_db)):
-    play = crud_play.get_play(db, play_id=play_id)
-    if not play:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail='Play not found'
-        )
-    return play
-
-@router.get('/', response_model=list[schemas.Play])
-def read_plays(
-    skip: int = 0,
-    limit: int = 100,
-    genre: str = None,
-    db: Session = Depends(get_db)
-):
-    return crud_play.get_plays(
-        db,
-        skip=skip,
-        limit=limit,
-        genre=genre
+def create_play(db: Session, play: schemas.PlayCreate):
+    db_play = models.Play(
+        title=play.title,
+        description=play.description,
+        duration_minutes=play.duration_minutes
     )
+    db.add(db_play)
+    db.commit()
+    db.refresh(db_play)
+    return db_play

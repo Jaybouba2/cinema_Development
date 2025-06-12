@@ -1,62 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from datetime import datetime
-from ..crud import showtime as crud_showtime
-from ..schemas import ShowtimeCreate, ShowtimeUpdate, ShowtimeResponse
-from ..database import get_db
+from app import models, schemas
 
-router = APIRouter()
+def get_showtime(db: Session, showtime_id: int):
+    return db.query(models.Showtime).filter(models.Showtime.id == showtime_id).first()
 
-@router.post("/", response_model=ShowtimeResponse, status_code=status.HTTP_201_CREATED)
-def create_showtime(showtime: ShowtimeCreate, db: Session = Depends(get_db)):
-    return crud_showtime.create_showtime(db=db, showtime=showtime)
+def get_showtimes(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.Showtime).offset(skip).limit(limit).all()
 
-@router.get("/{showtime_id}", response_model=ShowtimeResponse)
-def read_showtime(showtime_id: int, db: Session = Depends(get_db)):
-    db_showtime = crud_showtime.get_showtime(db, showtime_id=showtime_id)
-    if not db_showtime:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Showtime not found"
-        )
-    return db_showtime
-
-@router.get("/", response_model=list[ShowtimeResponse])
-def list_showtimes(
-    skip: int = 0,
-    limit: int = 100,
-    play_id: int = None,
-    start_time_from: datetime = None,
-    start_time_to: datetime = None,
-    db: Session = Depends(get_db)
-):
-    return crud_showtime.get_showtimes(
-        db,
-        skip=skip,
-        limit=limit,
-        play_id=play_id,
-        start_time_from=start_time_from,
-        start_time_to=start_time_to
+def create_showtime(db: Session, showtime: schemas.ShowtimeCreate):
+    db_showtime = models.Showtime(
+        play_id=showtime.play_id,
+        show_date=showtime.show_date,
+        location=showtime.location
     )
-
-@router.put("/{showtime_id}", response_model=ShowtimeResponse)
-def update_showtime(
-    showtime_id: int,
-    showtime: ShowtimeUpdate,
-    db: Session = Depends(get_db)
-):
-    updated_showtime = crud_showtime.update_showtime(db, showtime_id=showtime_id, showtime=showtime)
-    if not updated_showtime:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Showtime not found"
-        )
-    return updated_showtime
-
-@router.delete("/{showtime_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_showtime(showtime_id: int, db: Session = Depends(get_db)):
-    if not crud_showtime.delete_showtime(db, showtime_id=showtime_id):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Showtime not found"
-        )
+    db.add(db_showtime)
+    db.commit()
+    db.refresh(db_showtime)
+    return db_showtime
